@@ -15,7 +15,8 @@ export type NijamReporterOptions = {
   environment?: string;
   /**
    * Optional — upload each spec file's source so the dashboard can show it in the
-   * test detail. Off by default (this ships your test source to Nijam).
+   * test detail. **On by default**; set `false` to opt out (this ships your test
+   * source to Nijam).
    */
   uploadSource?: boolean;
 };

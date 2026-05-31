@@ -38,13 +38,14 @@ Create a project in your [Nijam dashboard](https://nijam.dev). Copy its **projec
 
 ## Options
 
-| Option        | Required | Default                 | Description                                  |
-| ------------- | -------- | ----------------------- | -------------------------------------------- |
-| `apiKey`      | yes      | —                       | API key from the Nijam dashboard.            |
-| `projectId`   | yes      | —                       | The project's ID (UUID) from the dashboard.  |
-| `apiUrl`      | no       | `https://api.nijam.dev` | Override for self-hosted instances.          |
-| `silent`      | no       | `false`                 | Suppress all `[nijam]` log lines.            |
-| `environment` | no       | —                       | Free-form tag, e.g. `"staging"`.             |
+| Option         | Required | Default                 | Description                                            |
+| -------------- | -------- | ----------------------- | ----------------------------------------------------- |
+| `apiKey`       | yes      | —                       | API key from the Nijam dashboard.                     |
+| `projectId`    | yes      | —                       | The project's ID (UUID) from the dashboard.           |
+| `apiUrl`       | no       | `https://api.nijam.dev` | Override for self-hosted instances.                   |
+| `silent`       | no       | `false`                 | Suppress all `[nijam]` log lines.                     |
+| `environment`  | no       | —                       | Free-form tag, e.g. `"staging"`.                      |
+| `uploadSource` | no       | `true`                  | Upload spec source so the dashboard can show it. Set `false` to opt out. |
 
 ## CI auto-detection
 
@@ -59,6 +60,25 @@ Supported out of the box:
 - **Generic** — `BRANCH`, `COMMIT_SHA`, `CI_URL`, `CI_RUN_ID`
 
 **Author email/name** come from CI vars where available (`GITLAB_USER_EMAIL`, `CI_COMMIT_AUTHOR`); GitHub, CircleCI, and Bitbucket don't expose a commit-author email, so the reporter falls back to `git log -1` and then `git config user.email`.
+
+## Uploading test source
+
+So the **test detail** page can render each test inline with its run history (instead of only linking out to your repo), the reporter uploads each spec file's source. This is **on by default**. After the run it reads each unique spec file that produced a test and uploads it (paths relative to the Playwright `rootDir`). Like everything else it's **fail-soft and non-blocking**: files over **256 KB are skipped**, uploads are capped at 4 concurrent, and any read/upload error is logged as a `[nijam]` warning and ignored.
+
+Only the `*.spec`/`*.test` files Playwright runs are uploaded — never your application code. If your spec files are sensitive, opt out with `uploadSource: false` (the dashboard still links to the source at the run's commit via your provider — GitHub/GitLab/Bitbucket):
+
+```ts
+reporter: [
+  [
+    "@nijam/pw-reporter",
+    {
+      apiKey: process.env.NIJAM_API_KEY,
+      projectId: "<project-uuid>",
+      uploadSource: false, // ← don't send spec source to Nijam
+    },
+  ],
+],
+```
 
 ## Traces
 

@@ -41,8 +41,10 @@ export default class NijamReporter implements Reporter {
   // machines / local-vs-CI) instead of the absolute `test.location.file`.
   private rootDir = '';
   // Unique spec files seen (relative key → absolute path), uploaded in onEnd when
-  // `uploadSource` is enabled.
+  // source upload is enabled.
   private readonly sourceFiles = new Map<string, string>();
+  // Source upload is opt-out: on by default, off only when explicitly `false`.
+  private readonly uploadSource: boolean;
 
   private client!: NijamClient;
   private buffer!: ExecutionBuffer;
@@ -55,6 +57,7 @@ export default class NijamReporter implements Reporter {
     // Clone — never mutate the input options object Playwright owns.
     this.options = { ...options };
     setSilent(this.options.silent ?? false);
+    this.uploadSource = this.options.uploadSource !== false;
 
     if (!this.options.apiKey || !this.options.projectId) {
       log.warn(
@@ -130,7 +133,7 @@ export default class NijamReporter implements Reporter {
         startedAt: result.startTime.toISOString(),
       };
 
-      if (this.options.uploadSource && !this.sourceFiles.has(file)) {
+      if (this.uploadSource && !this.sourceFiles.has(file)) {
         this.sourceFiles.set(file, test.location.file);
       }
 
@@ -147,7 +150,7 @@ export default class NijamReporter implements Reporter {
     try {
       await this.buffer.drain();
       await this.uploader.drain();
-      if (this.options.uploadSource) await this.uploadSources();
+      if (this.uploadSource) await this.uploadSources();
 
       const stats = this.computeStats();
       const payload: FinalizeRunPayload = {
