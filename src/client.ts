@@ -84,6 +84,14 @@ export class NijamClient {
     });
   }
 
+  /** Upload a spec file's source for a run (opt-in). Soft-fails like the rest. */
+  async uploadSource(runId: string, file: string, content: string): Promise<void> {
+    await this.send('POST', `/v1/runs/${runId}/source`, {
+      headers: this.headers(),
+      body: JSON.stringify({ file, content }),
+    });
+  }
+
   /** Finalize a run with its summary + status. */
   async finalizeRun(runId: string, payload: FinalizeRunPayload): Promise<void> {
     await this.send('PATCH', `/v1/runs/${runId}`, {

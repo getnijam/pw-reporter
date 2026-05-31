@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { relative, sep } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import type {
   FullConfig,
   FullResult,
@@ -39,6 +40,9 @@ export default class NijamReporter implements Reporter {
   // Playwright rootDir — spec paths are stored relative to it (portable across
   // machines / local-vs-CI) instead of the absolute `test.location.file`.
   private rootDir = '';
+  // Unique spec files seen (relative key → absolute path), uploaded in onEnd when
+  // `uploadSource` is enabled.
+  private readonly sourceFiles = new Map<string, string>();
 
   private client!: NijamClient;
   private buffer!: ExecutionBuffer;
@@ -110,19 +114,25 @@ export default class NijamReporter implements Reporter {
       this.outcomes.set(test.id, test.outcome());
 
       const executionId = randomUUID();
+      const file = relativeFile(test.location.file, this.rootDir);
       const payload: TestExecutionPayload = {
         id: executionId,
         testId: test.id,
         title: test.title,
         titlePath: test.titlePath(),
-        file: relativeFile(test.location.file, this.rootDir),
+        file,
         projectName: test.parent.project()?.name,
         status,
         durationMs: result.duration,
         retry: result.retry,
         errorMessage: result.error?.message,
+        line: test.location.line,
         startedAt: result.startTime.toISOString(),
       };
+
+      if (this.options.uploadSource && !this.sourceFiles.has(file)) {
+        this.sourceFiles.set(file, test.location.file);
+      }
 
       this.buffer.add(payload);
       // Fire-and-forget; never block test execution on a network call.
@@ -137,6 +147,7 @@ export default class NijamReporter implements Reporter {
     try {
       await this.buffer.drain();
       await this.uploader.drain();
+      if (this.options.uploadSource) await this.uploadSources();
 
       const stats = this.computeStats();
       const payload: FinalizeRunPayload = {
@@ -160,6 +171,27 @@ export default class NijamReporter implements Reporter {
   private async flushBatch(batch: TestExecutionPayload[]): Promise<void> {
     if (!this.runId) return;
     await this.client.sendExecutions(this.runId, batch, this.shardIndex);
+  }
+
+  /** Read + upload each unique spec file's source (≤4 concurrent; soft-fail). */
+  private async uploadSources(): Promise<void> {
+    if (!this.runId) return;
+    const MAX_BYTES = 256 * 1024;
+    const entries = [...this.sourceFiles.entries()];
+    let next = 0;
+    const worker = async (): Promise<void> => {
+      while (next < entries.length) {
+        const [rel, abs] = entries[next++]!;
+        try {
+          const content = await readFile(abs, 'utf8');
+          if (Buffer.byteLength(content, 'utf8') > MAX_BYTES) continue; // skip oversized
+          await this.client.uploadSource(this.runId!, rel, content);
+        } catch (err) {
+          log.warn(`source upload failed for ${rel}: ${describe(err)}`);
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
   }
 
   /** Roll the per-test final outcomes up into run-level totals. */

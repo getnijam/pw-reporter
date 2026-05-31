@@ -13,6 +13,11 @@ export type NijamReporterOptions = {
   silent?: boolean;
   /** Optional — free-form environment tag (e.g. "staging"). */
   environment?: string;
+  /**
+   * Optional — upload each spec file's source so the dashboard can show it in the
+   * test detail. Off by default (this ships your test source to Nijam).
+   */
+  uploadSource?: boolean;
 };
 
 /** CI / git metadata detected from the environment. */
@@ -55,6 +60,8 @@ export type TestExecutionPayload = {
   durationMs: number;
   retry: number;
   errorMessage?: string;
+  /** 1-based source line of the test definition (test.location.line). */
+  line?: number;
   startedAt: string;
 };
 
