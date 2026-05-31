@@ -126,6 +126,10 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
     env.CI_RUN_ID,
   );
 
+  // Re-running a workflow keeps the same run id but bumps the attempt; include it
+  // in the run's correlation key so a re-run is a fresh run, not a merge.
+  const ciRunAttempt = firstOf(env.GITHUB_RUN_ATTEMPT);
+
   const ciRunUrl = firstOf(
     githubRunUrl(),
     env.CI_PIPELINE_URL,
@@ -164,6 +168,7 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
     prNumber,
     ciProvider,
     ciRunId,
+    ciRunAttempt,
     ciRunUrl,
     repository,
     authorEmail,

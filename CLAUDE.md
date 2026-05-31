@@ -43,7 +43,8 @@ reporter: [['@nijam/pw-reporter', {
 ## Lifecycle & behavior
 - `onBegin` → `detectRunContext` + `POST /v1/runs`, store `runId`; on failure log + no-op the rest of the run.
 - `onTestEnd` → build a `TestExecution` (client-generated uuid `id`), push to buffer, fire-and-forget trace upload if `failed`/`timedOut` and a `trace` attachment exists. Never block the test path on the network.
-- `onEnd` → drain buffer + uploader, then `PATCH /v1/runs/:id` to finalize with status + stats.
+- `onEnd` → drain buffer + uploader, then `PATCH /v1/runs/:id` to finalize with status + stats + `shardIndex`.
+- **Sharding** (`--shard=i/N`): each shard is a separate process, but they **club into one Nijam run**. The reporter reads `config.shard` in `onBegin` and sends `shardIndex`/`shardTotal` (+ `ciRunAttempt` from `GITHUB_RUN_ATTEMPT`); the server keys on `ciRunId#attempt` and get-or-creates a single run, stamps each execution's shard, derives run stats from the merged executions, and only finalizes once every shard reports. No user config — works automatically when Playwright shards.
 - **Buffer**: flush at 50 items / 2s / `onEnd`. Failed flushes **drop the batch** with a warning (CI is short-lived; no retries).
 - **Trace upload**: only `failed`/`timedOut`; stream the `.zip` (never buffer); cap **4 in flight**.
 - **CI detection** (`ci.ts`): per-field resolution `CI vars → generic GIT_* → git shell-out → empty`. Captures commit, branch, prNumber, ciProvider, **ciRunId**, ciRunUrl, repository, **authorEmail/authorName**. Providers: GitHub, GitLab, CircleCI, **Bitbucket**, generic. Author email falls back to `git log -1`/`git config user.email` (GitHub/CircleCI/Bitbucket expose no author-email var). **Leave `branch` undefined when unknown** — the dashboard renders "No Branch Info"; never bake that string here.

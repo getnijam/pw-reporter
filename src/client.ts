@@ -73,10 +73,14 @@ export class NijamClient {
   }
 
   /** Flush a batch of executions. Failed flushes drop the batch (no retry). */
-  async sendExecutions(runId: string, executions: TestExecutionPayload[]): Promise<void> {
+  async sendExecutions(
+    runId: string,
+    executions: TestExecutionPayload[],
+    shardIndex?: number,
+  ): Promise<void> {
     await this.send('POST', `/v1/runs/${runId}/executions`, {
       headers: this.headers(),
-      body: JSON.stringify({ executions }),
+      body: JSON.stringify({ executions, shardIndex }),
     });
   }
 

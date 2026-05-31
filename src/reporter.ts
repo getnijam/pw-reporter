@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { relative, sep } from 'node:path';
 import type {
   FullConfig,
   FullResult,
@@ -32,6 +33,12 @@ export default class NijamReporter implements Reporter {
   private disabled = false;
   private runId: string | null = null;
   private startedAt = new Date().toISOString();
+  // Playwright `--shard` info (1-based index + total); undefined when not sharding.
+  private shardIndex: number | undefined;
+  private shardTotal: number | undefined;
+  // Playwright rootDir — spec paths are stored relative to it (portable across
+  // machines / local-vs-CI) instead of the absolute `test.location.file`.
+  private rootDir = '';
 
   private client!: NijamClient;
   private buffer!: ExecutionBuffer;
@@ -63,9 +70,15 @@ export default class NijamReporter implements Reporter {
     return false;
   }
 
-  async onBegin(_config: FullConfig, _suite: Suite): Promise<void> {
+  async onBegin(config: FullConfig, _suite: Suite): Promise<void> {
     if (this.disabled) return;
     try {
+      // When running `--shard=i/N`, Playwright sets config.shard; all shards of one
+      // CI run share a correlation key server-side, so they club into one run.
+      this.shardIndex = config.shard?.current;
+      this.shardTotal = config.shard?.total;
+      this.rootDir = config.rootDir;
+
       const context = detectRunContext(this.options);
       this.startedAt = new Date().toISOString();
       this.runId = await this.client.createRun({
@@ -73,6 +86,8 @@ export default class NijamReporter implements Reporter {
         projectId: this.options.projectId,
         environment: this.options.environment,
         startedAt: this.startedAt,
+        shardIndex: this.shardIndex,
+        shardTotal: this.shardTotal,
       });
 
       if (!this.runId) {
@@ -100,7 +115,7 @@ export default class NijamReporter implements Reporter {
         testId: test.id,
         title: test.title,
         titlePath: test.titlePath(),
-        file: test.location.file,
+        file: relativeFile(test.location.file, this.rootDir),
         projectName: test.parent.project()?.name,
         status,
         durationMs: result.duration,
@@ -128,6 +143,7 @@ export default class NijamReporter implements Reporter {
         status: normalizeRunStatus(result.status),
         finishedAt: new Date().toISOString(),
         stats,
+        shardIndex: this.shardIndex,
       };
       await this.client.finalizeRun(this.runId, payload);
       log.info(`run finalized (${stats.passed}/${stats.total} passed)`);
@@ -143,7 +159,7 @@ export default class NijamReporter implements Reporter {
 
   private async flushBatch(batch: TestExecutionPayload[]): Promise<void> {
     if (!this.runId) return;
-    await this.client.sendExecutions(this.runId, batch);
+    await this.client.sendExecutions(this.runId, batch, this.shardIndex);
   }
 
   /** Roll the per-test final outcomes up into run-level totals. */
@@ -198,6 +214,18 @@ function normalizeRunStatus(status: FullResult['status']): FinalizeRunPayload['s
     default:
       return 'failed';
   }
+}
+
+/**
+ * Spec path relative to Playwright's rootDir (what Playwright's own reporters
+ * show), normalized to `/`. Falls back to the absolute path if rootDir is unknown
+ * or the file sits outside it — the dashboard then displays just the basename.
+ */
+function relativeFile(file: string, rootDir: string): string {
+  if (!rootDir) return file;
+  const rel = relative(rootDir, file);
+  if (!rel || rel.startsWith('..')) return file;
+  return sep === '/' ? rel : rel.split(sep).join('/');
 }
 
 function describe(err: unknown): string {

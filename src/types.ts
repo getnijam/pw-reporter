@@ -22,6 +22,8 @@ export type RunContext = {
   prNumber?: string;
   ciProvider?: string;
   ciRunId?: string;
+  /** CI run attempt (e.g. GITHUB_RUN_ATTEMPT) — re-runs get a fresh Nijam run. */
+  ciRunAttempt?: string;
   ciRunUrl?: string;
   repository?: string;
   authorEmail?: string;
@@ -33,6 +35,9 @@ export type CreateRunPayload = RunContext & {
   projectId: string;
   environment?: string;
   startedAt: string;
+  /** Playwright shard (1-based) + total, when running `--shard`. Clubs shards into one run. */
+  shardIndex?: number;
+  shardTotal?: number;
 };
 
 export type ExecutionStatus = 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted';
@@ -64,4 +69,6 @@ export type FinalizeRunPayload = {
     skipped: number;
     flaky: number;
   };
+  /** The finalizing shard — the run completes only once every shard reports. */
+  shardIndex?: number;
 };
