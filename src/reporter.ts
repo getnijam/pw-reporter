@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { relative, sep } from 'node:path';
+import { isAbsolute, relative, sep } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import type {
   FullConfig,
@@ -12,7 +12,7 @@ import type {
 import { NijamClient } from './client.js';
 import { ExecutionBuffer } from './buffer.js';
 import { ArtifactUploader } from './artifacts.js';
-import { detectRunContext } from './ci.js';
+import { detectRunContext, detectGitRoot } from './ci.js';
 import { log, setSilent } from './log.js';
 import type {
   ExecutionStatus,
@@ -40,6 +40,9 @@ export default class NijamReporter implements Reporter {
   // Playwright rootDir — spec paths are stored relative to it (portable across
   // machines / local-vs-CI) instead of the absolute `test.location.file`.
   private rootDir = '';
+  // Git repo root — a portable fallback base for spec paths when a file sits
+  // outside rootDir, so we never store an absolute path (which breaks View-source).
+  private gitRoot = '';
   // Unique spec files seen (relative key → absolute path), uploaded in onEnd when
   // source upload is enabled.
   private readonly sourceFiles = new Map<string, string>();
@@ -85,6 +88,7 @@ export default class NijamReporter implements Reporter {
       this.shardIndex = config.shard?.current;
       this.shardTotal = config.shard?.total;
       this.rootDir = config.rootDir;
+      this.gitRoot = detectGitRoot() ?? '';
 
       const context = detectRunContext(this.options);
       this.startedAt = new Date().toISOString();
@@ -117,7 +121,7 @@ export default class NijamReporter implements Reporter {
       this.outcomes.set(test.id, test.outcome());
 
       const executionId = randomUUID();
-      const file = relativeFile(test.location.file, this.rootDir);
+      const file = relativeFile(test.location.file, this.rootDir, this.gitRoot);
       const payload: TestExecutionPayload = {
         id: executionId,
         testId: test.id,
@@ -253,14 +257,19 @@ function normalizeRunStatus(status: FullResult['status']): FinalizeRunPayload['s
 
 /**
  * Spec path relative to Playwright's rootDir (what Playwright's own reporters
- * show), normalized to `/`. Falls back to the absolute path if rootDir is unknown
- * or the file sits outside it — the dashboard then displays just the basename.
+ * show), normalized to `/`. When the file sits outside rootDir we fall back to a
+ * path relative to the git repo root, then to the basename — never an absolute
+ * machine path, which would break the dashboard's View-source links.
  */
-function relativeFile(file: string, rootDir: string): string {
-  if (!rootDir) return file;
-  const rel = relative(rootDir, file);
-  if (!rel || rel.startsWith('..')) return file;
-  return sep === '/' ? rel : rel.split(sep).join('/');
+function relativeFile(file: string, rootDir: string, gitRoot?: string): string {
+  for (const base of [rootDir, gitRoot]) {
+    if (!base) continue;
+    const rel = relative(base, file);
+    if (rel && !rel.startsWith('..') && !isAbsolute(rel)) {
+      return sep === '/' ? rel : rel.split(sep).join('/');
+    }
+  }
+  return file.split(/[\\/]/).pop() || file;
 }
 
 function describe(err: unknown): string {

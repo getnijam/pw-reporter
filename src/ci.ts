@@ -25,6 +25,20 @@ function gitHead(): string | undefined {
   }
 }
 
+/** Absolute path of the git repo root — a portable base for spec paths. Swallows errors. */
+export function detectGitRoot(): string | undefined {
+  try {
+    return (
+      execFileSync('git', ['rev-parse', '--show-toplevel'], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+        encoding: 'utf8',
+      }).trim() || undefined
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 /** HEAD commit author (email + name) from git. Swallows errors. */
 function gitAuthor(): GitAuthor {
   try {

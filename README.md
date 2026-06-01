@@ -23,6 +23,7 @@ export default defineConfig({
         apiKey: process.env.NIJAM_API_KEY,
         projectId: "b4fdfc06-76a2-4721-89eb-9d070add8a5a", // the project's UUID from the dashboard
         apiUrl: process.env.NIJAM_API_URL, // optional, defaults to https://api.nijam.dev
+        environment: process.env.NODE_ENV, // optional, free-form tag — filterable in the dashboard
         silent: false, // optional, suppresses [nijam] warnings
       },
     ],
@@ -44,7 +45,7 @@ Create a project in your [Nijam dashboard](https://nijam.dev). Copy its **projec
 | `projectId`    | yes      | —                       | The project's ID (UUID) from the dashboard.           |
 | `apiUrl`       | no       | `https://api.nijam.dev` | Override for self-hosted instances.                   |
 | `silent`       | no       | `false`                 | Suppress all `[nijam]` log lines.                     |
-| `environment`  | no       | —                       | Free-form tag, e.g. `"staging"`.                      |
+| `environment`  | no       | —                       | Free-form deploy tag (e.g. `"staging"`) — adds a run filter in the dashboard. Runs without it show as **Unset**. |
 | `uploadSource` | no       | `true`                  | Upload spec source so the dashboard can show it. Set `false` to opt out. |
 
 ## CI auto-detection
@@ -60,6 +61,16 @@ Supported out of the box:
 - **Generic** — `BRANCH`, `COMMIT_SHA`, `CI_URL`, `CI_RUN_ID`
 
 **Author email/name** come from CI vars where available (`GITLAB_USER_EMAIL`, `CI_COMMIT_AUTHOR`); GitHub, CircleCI, and Bitbucket don't expose a commit-author email, so the reporter falls back to `git log -1` and then `git config user.email`.
+
+## Environments
+
+Pass `environment` to tag each run with its deploy target — any string you like (`"staging"`, `"production"`, `"pr-preview"`, …), often wired to an env var so each pipeline reports its own:
+
+```ts
+environment: process.env.DEPLOY_ENV, // or "staging", process.env.NODE_ENV, etc.
+```
+
+The dashboard's run list then offers an **environment filter** to scope runs to one target. Runs reported without an `environment` are grouped under **Unset**, so you can always tell which runs carried no environment info.
 
 ## Uploading test source
 
