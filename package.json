@@ -1,6 +1,6 @@
 {
   "name": "@nijam/pw-reporter",
-  "version": "0.1.0-alpha.7",
+  "version": "0.1.0-alpha.8",
   "description": "Playwright reporter for Nijam — captures test runs and ships them to the Nijam API.",
   "license": "MIT",
   "type": "module",
