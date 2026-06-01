@@ -2,6 +2,8 @@
 
 Playwright reporter for [Nijam](https://nijam.dev) — captures your test runs and ships them to the Nijam API for run history, flakiness scoring, and trace storage. Think Sentry, for your Playwright suite.
 
+📚 Full documentation: **[docs.nijam.dev](https://docs.nijam.dev)**
+
 ## Install
 
 ```bash
@@ -43,7 +45,7 @@ Create a project in your [Nijam dashboard](https://nijam.dev). Copy its **projec
 | -------------- | -------- | ----------------------- | ----------------------------------------------------- |
 | `apiKey`       | yes      | —                       | API key from the Nijam dashboard.                     |
 | `projectId`    | yes      | —                       | The project's ID (UUID) from the dashboard.           |
-| `apiUrl`       | no       | `https://api.nijam.dev` | Override for self-hosted instances.                   |
+| `apiUrl`       | no       | `https://api.nijam.dev` | API base URL. You don't normally need to set this.    |
 | `silent`       | no       | `false`                 | Suppress all `[nijam]` log lines.                     |
 | `environment`  | no       | —                       | Free-form deploy tag (e.g. `"staging"`) — adds a run filter in the dashboard. Runs without it show as **Unset**. |
 | `uploadSource` | no       | `true`                  | Upload spec source so the dashboard can show it. Set `false` to opt out. |
@@ -94,10 +96,6 @@ reporter: [
 ## Traces
 
 Traces are uploaded only for tests that **fail** or **time out** (matching Playwright's default `on-first-retry` trace mode). Uploads stream straight to storage, never block your tests, and are capped at 4 concurrent uploads to spare CI bandwidth.
-
-## Self-hosting
-
-Running Nijam yourself? Point `apiUrl` at your instance. See [nijam.dev/docs/self-host](https://nijam.dev/docs/self-host).
 
 ## License
 

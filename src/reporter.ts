@@ -21,7 +21,7 @@ import type {
   TestExecutionPayload,
 } from './types.js';
 
-const SETUP_DOCS = 'https://nijam.dev/docs/setup';
+const SETUP_DOCS = 'https://docs.nijam.dev/reporter/configuration/';
 
 /**
  * Nijam Playwright reporter. Captures runs and ships them to the Nijam API.
