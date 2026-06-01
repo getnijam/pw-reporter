@@ -43,7 +43,12 @@ export class NijamClient {
         signal: controller.signal,
       });
       if (!res.ok) {
-        log.warn(`${method} ${path} → ${res.status}`);
+        if (res.status === 402) {
+          // Plan limit reached (Free tier). Stop reporting for now — never break CI.
+          log.warn(`${method} ${path} → 402: plan limit reached; upgrade at nijam.dev to keep reporting`);
+        } else {
+          log.warn(`${method} ${path} → ${res.status}`);
+        }
         return null;
       }
       return res;
