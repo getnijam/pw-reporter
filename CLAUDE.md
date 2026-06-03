@@ -36,6 +36,8 @@ reporter: [['@nijam/pw-reporter', {
   apiUrl: process.env.NIJAM_API_URL,    // optional, default https://api.nijam.dev
   silent: false,                        // optional
   environment: 'staging',               // optional
+  autoComplete: true,                   // optional (default true) — set false when fanning specs across
+                                        //   CI jobs WITHOUT --shard, so a post-matrix step finalizes (see Sharding)
 }]]
 ```
 `NijamReporterOptions` is the contract — don't change its shape without asking. Validate at construction; missing `apiKey`/`projectId` → warn with the docs link + `this.disabled = true`, no further work.
@@ -44,7 +46,8 @@ reporter: [['@nijam/pw-reporter', {
 - `onBegin` → `detectRunContext` + `POST /v1/runs`, store `runId`; on failure log + no-op the rest of the run.
 - `onTestEnd` → build a `TestExecution` (client-generated uuid `id`), push to buffer, fire-and-forget trace upload if `failed`/`timedOut` and a `trace` attachment exists. Never block the test path on the network.
 - `onEnd` → drain buffer + uploader, then `PATCH /v1/runs/:id` to finalize with status + stats + `shardIndex`.
-- **Sharding** (`--shard=i/N`): each shard is a separate process, but they **club into one Nijam run**. The reporter reads `config.shard` in `onBegin` and sends `shardIndex`/`shardTotal` (+ `ciRunAttempt` from `GITHUB_RUN_ATTEMPT`); the server keys on `ciRunId#attempt` and get-or-creates a single run, stamps each execution's shard, derives run stats from the merged executions, and only finalizes once every shard reports. No user config — works automatically when Playwright shards.
+- **Sharding** (`--shard=i/N`): each shard is a separate process, but they **club into one Nijam run**. The reporter reads `config.shard` in `onBegin` and sends `shardIndex`/`shardTotal` (+ `ciRunAttempt` from `GITHUB_RUN_ATTEMPT`); the server keys on `ciRunId#attempt` and get-or-creates a single run, stamps each execution's shard, derives run stats from the merged executions, and **only finalizes once every shard reports** (Playwright knows the total). No user config — works automatically when Playwright shards; no post-matrix step needed.
+- **Manual fan-out** (`autoComplete: false` / `NIJAM_AUTO_COMPLETE=false`): for teams that split specs across CI matrix jobs **without** `--shard` (e.g. one spec file per job), so the **total is unknown**. With this set, `onEnd` drains/uploads but **skips finalize** — no job ends the clubbed run. A single **post-matrix step** then calls `POST /v1/runs/complete` (keyed by `projectId` + the shared `ciRunId`) to finalize + fire Slack. (`--shard` ignores this — it self-completes.) Until completion the run shows running/failing; the server auto-cancels any run idle >1h as a safety net.
 - **Buffer**: flush at 50 items / 2s / `onEnd`. Failed flushes **drop the batch** with a warning (CI is short-lived; no retries).
 - **Trace upload**: only `failed`/`timedOut`; stream the `.zip` (never buffer); cap **4 in flight**.
 - **CI detection** (`ci.ts`): per-field resolution `CI vars → generic GIT_* → git shell-out → empty`. Captures commit, branch, prNumber, ciProvider, **ciRunId**, ciRunUrl, repository, **authorEmail/authorName**. Providers: GitHub, GitLab, CircleCI, **Bitbucket**, generic. Author email falls back to `git log -1`/`git config user.email` (GitHub/CircleCI/Bitbucket expose no author-email var). **Leave `branch` undefined when unknown** — the dashboard renders "No Branch Info"; never bake that string here.

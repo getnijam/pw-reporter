@@ -49,6 +49,10 @@ export default class NijamReporter implements Reporter {
   private readonly sourceFiles = new Map<string, string>();
   // Source upload is opt-out: on by default, off only when explicitly `false`.
   private readonly uploadSource: boolean;
+  // Finalize-on-end is opt-out: on by default. Off when the user fans tests across
+  // jobs (autoComplete:false / NIJAM_AUTO_COMPLETE=false) so a single post-matrix
+  // step completes the shared run; Playwright `--shard` is handled separately.
+  private readonly autoComplete: boolean;
 
   private client!: NijamClient;
   private buffer!: ExecutionBuffer;
@@ -62,6 +66,10 @@ export default class NijamReporter implements Reporter {
     this.options = { ...options };
     setSilent(this.options.silent ?? false);
     this.uploadSource = this.options.uploadSource !== false;
+    const envAutoCompleteOff = ['false', '0', 'no', 'off'].includes(
+      (process.env.NIJAM_AUTO_COMPLETE ?? '').trim().toLowerCase(),
+    );
+    this.autoComplete = this.options.autoComplete ?? !envAutoCompleteOff;
 
     if (!this.options.apiKey || !this.options.projectId) {
       log.warn(
@@ -157,15 +165,16 @@ export default class NijamReporter implements Reporter {
       await this.uploader.drain();
       if (this.uploadSource) await this.uploadSources();
 
-      // Sharded: this shard only streams its slice — it can't know when the others
-      // finish, so it must NOT finalize. The run is completed by a single
-      // post-matrix CI step that calls `POST /v1/runs/complete`; until then the
-      // dashboard shows running/failing. (Server also auto-cancels runs idle >1h.)
-      if (this.shardTotal) {
-        log.info(
-          `shard ${this.shardIndex ?? '?'}/${this.shardTotal} done — run completes via your ` +
-            `post-matrix step (see ${SHARD_DOCS})`,
-        );
+      // Manual fan-out (autoComplete:false / NIJAM_AUTO_COMPLETE=false): this process
+      // is one of many feeding a shared run whose total ISN'T known (e.g. a matrix
+      // where each job runs a different spec), so it must NOT finalize — a single
+      // post-matrix step completes the run via `POST /v1/runs/complete`. Playwright
+      // `--shard` is different: each shard finalizes (sending its index) and the
+      // server completes the run once every shard has reported, so no extra step is
+      // needed. Either way the dashboard shows running/failing until completion (the
+      // server also auto-cancels runs idle >1h).
+      if (!this.autoComplete) {
+        log.info(`this job done — complete the run via your post-matrix step (see ${SHARD_DOCS})`);
         return;
       }
 
@@ -174,6 +183,9 @@ export default class NijamReporter implements Reporter {
         status: normalizeRunStatus(result.status),
         finishedAt: new Date().toISOString(),
         stats,
+        // Which shard finalized, for `--shard` runs — the server marks it reported and
+        // completes the clubbed run once all shards are in. Undefined when not sharding.
+        shardIndex: this.shardIndex,
       };
       await this.client.finalizeRun(this.runId, payload);
       log.info(`run finalized (${stats.passed}/${stats.total} passed)`);

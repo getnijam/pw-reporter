@@ -19,6 +19,17 @@ export type NijamReporterOptions = {
    * source to Nijam).
    */
   uploadSource?: boolean;
+  /**
+   * Optional — whether the reporter finalizes the run when this process ends
+   * (**default `true`**). Set `false` when you fan tests across multiple CI jobs
+   * that DON'T use Playwright `--shard` — e.g. a matrix where each job runs a
+   * different spec file. They all club into one Nijam run (shared CI run id), so no
+   * single job may finalize it: each only streams its results, and you mark the run
+   * complete once with a single post-matrix step (`POST /v1/runs/complete`). Also
+   * settable via the `NIJAM_AUTO_COMPLETE=false` env var (handy when one config is
+   * reused across contexts). Playwright `--shard` runs defer automatically.
+   */
+  autoComplete?: boolean;
 };
 
 /** CI / git metadata detected from the environment. */
