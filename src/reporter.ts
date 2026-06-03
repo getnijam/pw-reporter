@@ -22,6 +22,7 @@ import type {
 } from './types.js';
 
 const SETUP_DOCS = 'https://docs.nijam.dev/reporter/configuration/';
+const SHARD_DOCS = 'https://docs.nijam.dev/reporter/ci-integration/#sharded-runs';
 
 /**
  * Nijam Playwright reporter. Captures runs and ships them to the Nijam API.
@@ -156,12 +157,23 @@ export default class NijamReporter implements Reporter {
       await this.uploader.drain();
       if (this.uploadSource) await this.uploadSources();
 
+      // Sharded: this shard only streams its slice — it can't know when the others
+      // finish, so it must NOT finalize. The run is completed by a single
+      // post-matrix CI step that calls `POST /v1/runs/complete`; until then the
+      // dashboard shows running/failing. (Server also auto-cancels runs idle >1h.)
+      if (this.shardTotal) {
+        log.info(
+          `shard ${this.shardIndex ?? '?'}/${this.shardTotal} done — run completes via your ` +
+            `post-matrix step (see ${SHARD_DOCS})`,
+        );
+        return;
+      }
+
       const stats = this.computeStats();
       const payload: FinalizeRunPayload = {
         status: normalizeRunStatus(result.status),
         finishedAt: new Date().toISOString(),
         stats,
-        shardIndex: this.shardIndex,
       };
       await this.client.finalizeRun(this.runId, payload);
       log.info(`run finalized (${stats.passed}/${stats.total} passed)`);
