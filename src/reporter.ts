@@ -38,11 +38,11 @@ export default class NijamReporter implements Reporter {
   // Playwright `--shard` info (1-based index + total); undefined when not sharding.
   private shardIndex: number | undefined;
   private shardTotal: number | undefined;
-  // Playwright rootDir — spec paths are stored relative to it (portable across
-  // machines / local-vs-CI) instead of the absolute `test.location.file`.
+  // Playwright rootDir — the fallback base for spec paths when there's no git repo.
   private rootDir = '';
-  // Git repo root — a portable fallback base for spec paths when a file sits
-  // outside rootDir, so we never store an absolute path (which breaks View-source).
+  // Git repo root — the PRIMARY base for spec paths: relative to it gives the
+  // repo-relative path the dashboard's View-source links need (keeps a monorepo
+  // subfolder prefix). rootDir is the no-git fallback. Never an absolute path.
   private gitRoot = '';
   // Unique spec files seen (relative key → absolute path), uploaded in onEnd when
   // source upload is enabled.
@@ -280,13 +280,19 @@ function normalizeRunStatus(status: FullResult['status']): FinalizeRunPayload['s
 }
 
 /**
- * Spec path relative to Playwright's rootDir (what Playwright's own reporters
- * show), normalized to `/`. When the file sits outside rootDir we fall back to a
- * path relative to the git repo root, then to the basename — never an absolute
- * machine path, which would break the dashboard's View-source links.
+ * Spec path relative to the **git repo root** when available, else Playwright's
+ * rootDir — normalized to `/`. The repo-root form is what the dashboard needs to
+ * build a working "View source" link: GitHub/GitLab serve files at
+ * `/blob/<sha>/<repo-relative-path>`, so a monorepo that runs Playwright from a
+ * subfolder must keep that prefix (`qa-smoke/login.spec.ts`, not `login.spec.ts`).
+ * Falls back to rootDir-relative (no git), then the basename — never an absolute
+ * machine path, which would 404 the View-source link.
  */
 function relativeFile(file: string, rootDir: string, gitRoot?: string): string {
-  for (const base of [rootDir, gitRoot]) {
+  // gitRoot first: relative(gitRoot, file) is the path the provider expects under
+  // /blob/<sha>/…. rootDir-relative drops any folder between the repo root and
+  // Playwright's rootDir, breaking the link (and disambiguation) in monorepos.
+  for (const base of [gitRoot, rootDir]) {
     if (!base) continue;
     const rel = relative(base, file);
     if (rel && !rel.startsWith('..') && !isAbsolute(rel)) {
