@@ -88,23 +88,23 @@ function bitbucketRunUrl(): string | undefined {
   return `${origin.replace(/\/+$/, '')}/pipelines/results/${num}`;
 }
 
+/** First matching CI provider, in priority order; undefined when not on known CI. */
+function detectCiProvider(): RunContext['ciProvider'] {
+  if (env.GITHUB_ACTIONS) return 'github';
+  if (env.GITLAB_CI) return 'gitlab';
+  if (env.CIRCLECI) return 'circleci';
+  if (env.BITBUCKET_BUILD_NUMBER || env.BITBUCKET_PIPELINE_UUID) return 'bitbucket';
+  if (env.CI) return 'generic';
+  return undefined;
+}
+
 /**
  * Detect commit / branch / PR / CI run id+url / git author from the environment.
  * Resolution order per field: CI-specific > generic GIT_* > git shell-out > empty.
  * Branch stays undefined when unknown — the dashboard renders "No Branch Info".
  */
 export function detectRunContext(_options: NijamReporterOptions): RunContext {
-  const ciProvider = env.GITHUB_ACTIONS
-    ? 'github'
-    : env.GITLAB_CI
-      ? 'gitlab'
-      : env.CIRCLECI
-        ? 'circleci'
-        : env.BITBUCKET_BUILD_NUMBER || env.BITBUCKET_PIPELINE_UUID
-          ? 'bitbucket'
-          : env.CI
-            ? 'generic'
-            : undefined;
+  const ciProvider = detectCiProvider();
 
   const commitSha = firstOf(
     env.GITHUB_SHA,

@@ -61,6 +61,7 @@ reporter: [['@nijam/pw-reporter', {
 - ❌ Log at info level by default (noisy CI) · `console.log` in src (use `log.ts`).
 - ❌ Mutate the input options object (clone first) · read user code/config beyond what's passed in.
 - ❌ Change `NijamReporterOptions` shape without asking.
+- ❌ **Ternary hell** — never nest ternaries (`a ? b : c ? d : e`, or a ternary inside a branch); one `cond ? a : b` level max. Use a lookup object, an early-return helper, or `if`/`else`. ❌ **IIFEs** (`(() => { … })()`) — name the function and call it.
 
 ## Build & publish
 - `npm run build` (tsup) · `npm run typecheck` · `npm run dev` (watch).
