@@ -34,6 +34,9 @@ export default class NijamReporter implements Reporter {
   private readonly options: NijamReporterOptions;
   private disabled = false;
   private runId: string | null = null;
+  // The run's dashboard URL (from createRun) — printed at the start and again at the
+  // end of the log so it's clickable from CI / terminal output without scrolling back.
+  private runUrl: string | null = null;
   private startedAt = new Date().toISOString();
   // Playwright `--shard` info (1-based index + total); undefined when not sharding.
   private shardIndex: number | undefined;
@@ -117,8 +120,9 @@ export default class NijamReporter implements Reporter {
         return;
       }
       this.runId = created.id;
+      this.runUrl = created.url ?? null;
       // Print the run's dashboard link so it's clickable straight from CI / terminal logs.
-      log.info(created.url ? `run started — view it at ${created.url}` : `run started (${created.id})`);
+      log.info(this.runUrl ? `run started — view it at ${this.runUrl}` : `run started (${created.id})`);
     } catch (err) {
       this.disabled = true;
       log.warn(`onBegin failed: ${describe(err)}`);
@@ -177,6 +181,7 @@ export default class NijamReporter implements Reporter {
       // server also auto-cancels runs idle >1h).
       if (!this.autoComplete) {
         log.info(`this job done — complete the run via your post-matrix step (see ${SHARD_DOCS})`);
+        if (this.runUrl) log.info(`view the run at ${this.runUrl}`);
         return;
       }
 
@@ -190,7 +195,9 @@ export default class NijamReporter implements Reporter {
         shardIndex: this.shardIndex,
       };
       await this.client.finalizeRun(this.runId, payload);
-      log.info(`run finalized (${stats.passed}/${stats.total} passed)`);
+      log.info(
+        `run finalized (${stats.passed}/${stats.total} passed)${this.runUrl ? ` — view it at ${this.runUrl}` : ''}`,
+      );
     } catch (err) {
       log.warn(`onEnd failed: ${describe(err)}`);
     }
