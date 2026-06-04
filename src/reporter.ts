@@ -101,7 +101,7 @@ export default class NijamReporter implements Reporter {
 
       const context = detectRunContext(this.options);
       this.startedAt = new Date().toISOString();
-      this.runId = await this.client.createRun({
+      const created = await this.client.createRun({
         ...context,
         projectId: this.options.projectId,
         environment: this.options.environment,
@@ -110,13 +110,15 @@ export default class NijamReporter implements Reporter {
         shardTotal: this.shardTotal,
       });
 
-      if (!this.runId) {
+      if (!created) {
         // Couldn't open a run — no-op the rest of this run.
         this.disabled = true;
         log.warn('could not create run; reporting disabled for this run');
         return;
       }
-      log.info(`run started (${this.runId})`);
+      this.runId = created.id;
+      // Print the run's dashboard link so it's clickable straight from CI / terminal logs.
+      log.info(created.url ? `run started — view it at ${created.url}` : `run started (${created.id})`);
     } catch (err) {
       this.disabled = true;
       log.warn(`onBegin failed: ${describe(err)}`);

@@ -79,16 +79,21 @@ export class NijamClient {
     }
   }
 
-  /** Open a run. Returns the run id, or null if the call failed. */
-  async createRun(payload: CreateRunPayload): Promise<string | null> {
+  /** Open a run. Returns the run id + dashboard URL, or null if the call failed. */
+  async createRun(payload: CreateRunPayload): Promise<{ id: string; url?: string } | null> {
     const res = await this.send('POST', '/v1/runs', {
       headers: this.headers(),
       body: JSON.stringify(payload),
     });
     if (!res) return null;
     try {
-      const data = (await res.json()) as { id?: string; run?: { id?: string } };
-      return data.id ?? data.run?.id ?? null;
+      const data = (await res.json()) as { id?: string; url?: string; run?: { id?: string } };
+      const id = data.id ?? data.run?.id;
+      if (!id) {
+        log.warn('POST /v1/runs returned no run id');
+        return null;
+      }
+      return { id, url: data.url };
     } catch {
       log.warn('POST /v1/runs returned an unparseable body');
       return null;
