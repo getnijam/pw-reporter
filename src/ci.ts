@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import type { NijamReporterOptions, RunContext } from './types.js';
 
 const env = process.env;
@@ -75,6 +76,29 @@ function parseAuthor(raw: string | undefined): GitAuthor {
   return raw.includes('@') ? { email: raw.trim() } : { name: raw.trim() };
 }
 
+/**
+ * On a GitHub Actions `pull_request` run, `GITHUB_SHA` is the synthetic *merge*
+ * commit — GitHub surfaces PR checks against the PR *head* SHA, so a check on the
+ * merge commit never shows on the PR. Read the head SHA from the event payload.
+ * Read once in onBegin (not the test path); swallows all errors.
+ */
+function githubPrHeadSha(): string | undefined {
+  const eventName = env.GITHUB_EVENT_NAME;
+  const path = env.GITHUB_EVENT_PATH;
+  if (!path || (eventName !== 'pull_request' && eventName !== 'pull_request_target')) {
+    return undefined;
+  }
+  try {
+    const event = JSON.parse(readFileSync(path, 'utf8')) as {
+      pull_request?: { head?: { sha?: unknown } };
+    };
+    const sha = event.pull_request?.head?.sha;
+    return typeof sha === 'string' ? sha : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function githubRunUrl(): string | undefined {
   if (!env.GITHUB_RUN_ID || !env.GITHUB_REPOSITORY) return undefined;
   const server = env.GITHUB_SERVER_URL ?? 'https://github.com';
@@ -107,6 +131,7 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
   const ciProvider = detectCiProvider();
 
   const commitSha = firstOf(
+    githubPrHeadSha(), // PR head, not the merge commit, so GitHub PR checks land correctly
     env.GITHUB_SHA,
     env.CI_COMMIT_SHA,
     env.CIRCLE_SHA1,
@@ -127,6 +152,9 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
   );
 
   const prNumber = firstOf(
+    // GitHub Actions exposes no PR-number var — derive it from the PR ref
+    // (`refs/pull/<n>/merge`), set on pull_request events.
+    env.GITHUB_REF?.match(/^refs\/pull\/(\d+)\//)?.[1],
     env.CI_MERGE_REQUEST_IID,
     env.CIRCLE_PULL_REQUEST?.split('/').pop(),
     env.BITBUCKET_PR_ID,
