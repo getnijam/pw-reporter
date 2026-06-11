@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./logo.png" alt="Nijam" width="84" height="84" />
+</p>
+
 # @nijam/pw-reporter
 
 Playwright reporter for [Nijam](https://nijam.dev) — captures your test runs and ships them to the Nijam API for run history, flakiness scoring, and trace storage. Think Sentry, for your Playwright suite.
