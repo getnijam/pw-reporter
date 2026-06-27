@@ -7,7 +7,7 @@ const FLUSH_INTERVAL_MS = 2_000;
 /**
  * Batches test executions and flushes them when the buffer hits 50 items,
  * 2s elapse since the last flush, or `flush()` is called explicitly.
- * Failed flushes drop the batch (handled by the flush fn) — CI is short-lived.
+ * Failed flushes drop the batch (handled by the flush fn), CI is short-lived.
  */
 export class ExecutionBuffer {
   private items: TestExecutionPayload[] = [];

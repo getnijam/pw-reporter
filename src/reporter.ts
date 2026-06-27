@@ -34,16 +34,16 @@ export default class NijamReporter implements Reporter {
   private readonly options: NijamReporterOptions;
   private disabled = false;
   private runId: string | null = null;
-  // The run's dashboard URL (from createRun) — printed at the start and again at the
+  // The run's dashboard URL (from createRun), printed at the start and again at the
   // end of the log so it's clickable from CI / terminal output without scrolling back.
   private runUrl: string | null = null;
   private startedAt = new Date().toISOString();
   // Playwright `--shard` info (1-based index + total); undefined when not sharding.
   private shardIndex: number | undefined;
   private shardTotal: number | undefined;
-  // Playwright rootDir — the fallback base for spec paths when there's no git repo.
+  // Playwright rootDir, the fallback base for spec paths when there's no git repo.
   private rootDir = '';
-  // Git repo root — the PRIMARY base for spec paths: relative to it gives the
+  // Git repo root, the PRIMARY base for spec paths: relative to it gives the
   // repo-relative path the dashboard's View-source links need (keeps a monorepo
   // subfolder prefix). rootDir is the no-git fallback. Never an absolute path.
   private gitRoot = '';
@@ -61,11 +61,11 @@ export default class NijamReporter implements Reporter {
   private buffer!: ExecutionBuffer;
   private uploader!: ArtifactUploader;
 
-  // Final outcome per test id — deduped so retries don't inflate run totals.
+  // Final outcome per test id, deduped so retries don't inflate run totals.
   private readonly outcomes = new Map<string, ReturnType<TestCase['outcome']>>();
 
   constructor(options: NijamReporterOptions) {
-    // Clone — never mutate the input options object Playwright owns.
+    // Clone, never mutate the input options object Playwright owns.
     this.options = { ...options };
     setSilent(this.options.silent ?? false);
     this.uploadSource = this.options.uploadSource !== false;
@@ -76,7 +76,7 @@ export default class NijamReporter implements Reporter {
 
     if (!this.options.apiKey || !this.options.projectId) {
       log.warn(
-        `missing ${!this.options.apiKey ? 'apiKey' : 'projectId'} — reporter disabled. See ${SETUP_DOCS}`,
+        `missing ${!this.options.apiKey ? 'apiKey' : 'projectId'}, reporter disabled. See ${SETUP_DOCS}`,
       );
       this.disabled = true;
       return;
@@ -114,7 +114,7 @@ export default class NijamReporter implements Reporter {
       });
 
       if (!created) {
-        // Couldn't open a run — no-op the rest of this run.
+        // Couldn't open a run, no-op the rest of this run.
         this.disabled = true;
         log.warn('could not create run; reporting disabled for this run');
         return;
@@ -122,7 +122,7 @@ export default class NijamReporter implements Reporter {
       this.runId = created.id;
       this.runUrl = created.url ?? null;
       // Print the run's dashboard link so it's clickable straight from CI / terminal logs.
-      log.info(this.runUrl ? `run started — view it at ${this.runUrl}` : `run started (${created.id})`);
+      log.info(this.runUrl ? `run started, view it at ${this.runUrl}` : `run started (${created.id})`);
     } catch (err) {
       this.disabled = true;
       log.warn(`onBegin failed: ${describe(err)}`);
@@ -173,14 +173,14 @@ export default class NijamReporter implements Reporter {
 
       // Manual fan-out (autoComplete:false / NIJAM_AUTO_COMPLETE=false): this process
       // is one of many feeding a shared run whose total ISN'T known (e.g. a matrix
-      // where each job runs a different spec), so it must NOT finalize — a single
+      // where each job runs a different spec), so it must NOT finalize, a single
       // post-matrix step completes the run via `POST /v1/runs/complete`. Playwright
       // `--shard` is different: each shard finalizes (sending its index) and the
       // server completes the run once every shard has reported, so no extra step is
       // needed. Either way the dashboard shows running/failing until completion (the
       // server also auto-cancels runs idle >1h).
       if (!this.autoComplete) {
-        log.info(`this job done — complete the run via your post-matrix step (see ${SHARD_DOCS})`);
+        log.info(`this job done, complete the run via your post-matrix step (see ${SHARD_DOCS})`);
         if (this.runUrl) log.info(`view the run at ${this.runUrl}`);
         return;
       }
@@ -190,13 +190,13 @@ export default class NijamReporter implements Reporter {
         status: normalizeRunStatus(result.status),
         finishedAt: new Date().toISOString(),
         stats,
-        // Which shard finalized, for `--shard` runs — the server marks it reported and
+        // Which shard finalized, for `--shard` runs, the server marks it reported and
         // completes the clubbed run once all shards are in. Undefined when not sharding.
         shardIndex: this.shardIndex,
       };
       await this.client.finalizeRun(this.runId, payload);
       log.info(
-        `run finalized (${stats.passed}/${stats.total} passed)${this.runUrl ? ` — view it at ${this.runUrl}` : ''}`,
+        `run finalized (${stats.passed}/${stats.total} passed)${this.runUrl ? `, view it at ${this.runUrl}` : ''}`,
       );
     } catch (err) {
       log.warn(`onEnd failed: ${describe(err)}`);
@@ -290,11 +290,11 @@ function normalizeRunStatus(status: FullResult['status']): FinalizeRunPayload['s
 
 /**
  * Spec path relative to the **git repo root** when available, else Playwright's
- * rootDir — normalized to `/`. The repo-root form is what the dashboard needs to
+ * rootDir, normalized to `/`. The repo-root form is what the dashboard needs to
  * build a working "View source" link: GitHub/GitLab serve files at
  * `/blob/<sha>/<repo-relative-path>`, so a monorepo that runs Playwright from a
  * subfolder must keep that prefix (`qa-smoke/login.spec.ts`, not `login.spec.ts`).
- * Falls back to rootDir-relative (no git), then the basename — never an absolute
+ * Falls back to rootDir-relative (no git), then the basename, never an absolute
  * machine path, which would 404 the View-source link.
  */
 function relativeFile(file: string, rootDir: string, gitRoot?: string): string {

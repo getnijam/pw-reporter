@@ -20,7 +20,7 @@ const DEFAULT_CONTENT_TYPE: Record<ArtifactKind, string> = {
 
 /**
  * Collects each test's trace / screenshot(s) / video attachments during the run,
- * then uploads them in `drain()` — which the reporter calls in onEnd *after* the
+ * then uploads them in `drain()`, which the reporter calls in onEnd *after* the
  * execution buffer is flushed, so the artifact's execution row already exists
  * (the upload endpoint 404s otherwise). Uploads run concurrency-capped at 4.
  */

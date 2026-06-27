@@ -26,7 +26,7 @@ function gitHead(): string | undefined {
   }
 }
 
-/** Absolute path of the git repo root — a portable base for spec paths. Swallows errors. */
+/** Absolute path of the git repo root, a portable base for spec paths. Swallows errors. */
 export function detectGitRoot(): string | undefined {
   try {
     return (
@@ -54,7 +54,7 @@ function gitAuthor(): GitAuthor {
   }
 }
 
-/** Configured git email (often a bot in CI) — last-resort fallback. */
+/** Configured git email (often a bot in CI), last-resort fallback. */
 function gitConfigEmail(): string | undefined {
   try {
     return (
@@ -78,7 +78,7 @@ function parseAuthor(raw: string | undefined): GitAuthor {
 
 /**
  * On a GitHub Actions `pull_request` run, `GITHUB_SHA` is the synthetic *merge*
- * commit — GitHub surfaces PR checks against the PR *head* SHA, so a check on the
+ * commit, GitHub surfaces PR checks against the PR *head* SHA, so a check on the
  * merge commit never shows on the PR. Read the head SHA from the event payload.
  * Read once in onBegin (not the test path); swallows all errors.
  */
@@ -125,7 +125,7 @@ function detectCiProvider(): RunContext['ciProvider'] {
 /**
  * Detect commit / branch / PR / CI run id+url / git author from the environment.
  * Resolution order per field: CI-specific > generic GIT_* > git shell-out > empty.
- * Branch stays undefined when unknown — the dashboard renders "No Branch Info".
+ * Branch stays undefined when unknown, the dashboard renders "No Branch Info".
  */
 export function detectRunContext(_options: NijamReporterOptions): RunContext {
   const ciProvider = detectCiProvider();
@@ -152,7 +152,7 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
   );
 
   const prNumber = firstOf(
-    // GitHub Actions exposes no PR-number var — derive it from the PR ref
+    // GitHub Actions exposes no PR-number var, derive it from the PR ref
     // (`refs/pull/<n>/merge`), set on pull_request events.
     env.GITHUB_REF?.match(/^refs\/pull\/(\d+)\//)?.[1],
     env.CI_MERGE_REQUEST_IID,
@@ -186,7 +186,7 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
     env.BITBUCKET_REPO_FULL_NAME,
   );
 
-  // Author — single git shell-out, reused for email + name.
+  // Author, single git shell-out, reused for email + name.
   const fromGit = gitAuthor();
   const fromCommitAuthor = parseAuthor(env.CI_COMMIT_AUTHOR); // GitLab "Name <email>"
 

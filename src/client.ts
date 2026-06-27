@@ -18,7 +18,7 @@ function describeFetchError(err: unknown): string {
   const cause = (err as { cause?: unknown }).cause;
   if (cause instanceof Error) {
     const code = (cause as { code?: string }).code;
-    return code ? `${code} — ${cause.message}` : cause.message;
+    return code ? `${code}, ${cause.message}` : cause.message;
   }
   return err.message;
 }
@@ -60,7 +60,7 @@ export class NijamClient {
       });
       if (!res.ok) {
         if (res.status === 402) {
-          // Plan limit reached (Free tier). Stop reporting for now — never break CI.
+          // Plan limit reached (Free tier). Stop reporting for now, never break CI.
           log.warn(`${method} ${path} → 402: plan limit reached; upgrade at nijam.dev to keep reporting`);
         } else {
           log.warn(`${method} ${path} → ${res.status}`);

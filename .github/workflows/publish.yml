@@ -4,7 +4,7 @@ name: Publish
 #   bump version → commit + tag (vX.Y.Z) → verify → publish to npm → push commit + tag.
 # Run it from the Actions tab: "Publish" → "Run workflow", pick a bump type.
 #
-# Required repo secret: NPM_TOKEN — an npm automation token with publish access to
+# Required repo secret: NPM_TOKEN, an npm automation token with publish access to
 # the @nijam scope (Settings → Secrets and variables → Actions).
 on:
   workflow_dispatch:
@@ -59,7 +59,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
-      # `dist/` is gitignored, so the tree is clean here — npm version creates the
+      # `dist/` is gitignored, so the tree is clean here, npm version creates the
       # bump commit + a `v<version>` tag on HEAD.
       - name: Bump version + create tag
         id: bump
@@ -83,14 +83,14 @@ jobs:
           TAG_SHA="$(git rev-parse "$TAG^{commit}")"
           HEAD_SHA="$(git rev-parse HEAD)"
           if [ "$TAG_SHA" != "$HEAD_SHA" ]; then
-            echo "::error::Tag $TAG points at $TAG_SHA but the publish commit is $HEAD_SHA — refusing to publish."
+            echo "::error::Tag $TAG points at $TAG_SHA but the publish commit is $HEAD_SHA, refusing to publish."
             exit 1
           fi
           if npm view "@nijam/pw-reporter@$VERSION" version >/dev/null 2>&1; then
-            echo "::error::@nijam/pw-reporter@$VERSION is already published on npm — bump again."
+            echo "::error::@nijam/pw-reporter@$VERSION is already published on npm, bump again."
             exit 1
           fi
-          echo "OK — $TAG → $HEAD_SHA; version $VERSION is not yet on npm."
+          echo "OK, $TAG → $HEAD_SHA; version $VERSION is not yet on npm."
 
       # --access public: scoped (@nijam) packages are private by default.
       # --provenance: signed build attestation; needs a PUBLIC repo + id-token:write.
