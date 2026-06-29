@@ -26,6 +26,7 @@ src/
   types.ts      # NijamReporterOptions + payload shapes
   log.ts        # [nijam]-prefixed warn/info
   index.ts      # public entry, re-exports reporter
+  cli.ts        # `nijam-pw` bin: fetch-failed subcommand (re-run only failures)
 ```
 
 ## Public API (design backward from this)
@@ -52,6 +53,7 @@ reporter: [['@nijam/pw-reporter', {
 - **Trace upload**: only `failed`/`timedOut`; stream the `.zip` (never buffer); cap **4 in flight**.
 - **CI detection** (`ci.ts`): per-field resolution `CI vars → generic GIT_* → git shell-out → empty`. Captures commit, branch, prNumber, ciProvider, **ciRunId**, ciRunUrl, repository, **authorEmail/authorName**. Providers: GitHub, GitLab, CircleCI, **Bitbucket**, generic. Author email falls back to `git log -1`/`git config user.email` (GitHub/CircleCI/Bitbucket expose no author-email var). **Leave `branch` undefined when unknown**, the dashboard renders "No Branch Info"; never bake that string here.
 - **HTTP**: Bearer `apiKey`, 30s `AbortController` timeout, no retries, errors via `log.warn(method, path, status)`.
+- **Re-run only failures** (`cli.ts`, `nijam-pw` bin): `nijam-pw fetch-failed` GETs `/v1/projects/:id/failed-tests` (ingest-key authed, identifiers only) for this CI run, prints `file:line` tokens (`npx playwright test $(cat failed.txt)`), and via `--export-env "$GITHUB_ENV"` writes `NIJAM_RUN_GROUP`/`NIJAM_RUN_ATTEMPT`/`NIJAM_RERUN` so the retry's reporter run **clubs under the original run** and is tagged `partialRerun`. `ci.ts` honors `NIJAM_RUN_GROUP` (override ciRunId) + `NIJAM_RUN_ATTEMPT` (override attempt); `reporter.ts` sends `partialRerun` from `NIJAM_RERUN`. The CLI is a normal stdout/stderr tool (tokens→stdout), but stays CI-safe: a fetch failure emits nothing + exits 0 (caller's `[ -s failed.txt ]` guard runs the full suite), only bad usage exits non-zero. Never auto-detects across separate workflows, pass `--ci-run-id` on CIs that mint a new run id per retry.
 
 ## Guard rails, do NOT
 - ❌ **Throw from any Reporter method**, wrap every async block in try/catch, `log.warn`, continue. The reporter MUST NOT break a user's CI. Ever.

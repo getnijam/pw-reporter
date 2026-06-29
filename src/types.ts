@@ -55,6 +55,26 @@ export type CreateRunPayload = RunContext & {
   /** Playwright shard (1-based) + total, when running `--shard`. Clubs shards into one run. */
   shardIndex?: number;
   shardTotal?: number;
+  /** True when this run re-ran only the previous attempt's failed tests (NIJAM_RERUN). */
+  partialRerun?: boolean;
+};
+
+/** One failed test from the previous run, returned by GET /v1/projects/:id/failed-tests. */
+export type FailedTest = {
+  testId: string;
+  file: string;
+  line: number | null;
+  title: string;
+  titlePath: string[];
+  projectName: string | null;
+};
+
+/** Response of the failed-tests fetch (re-run only what failed). */
+export type FailedTestsResult = {
+  runId: string | null;
+  ciRunId: string;
+  attempt: number | null;
+  tests: FailedTest[];
 };
 
 export type ExecutionStatus = 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted';

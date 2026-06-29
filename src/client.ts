@@ -4,6 +4,7 @@ import { log } from './log.js';
 import type {
   ArtifactKind,
   CreateRunPayload,
+  FailedTestsResult,
   FinalizeRunPayload,
   TestExecutionPayload,
 } from './types.js';
@@ -96,6 +97,29 @@ export class NijamClient {
       return { id, url: data.url };
     } catch {
       log.warn('POST /v1/runs returned an unparseable body');
+      return null;
+    }
+  }
+
+  /**
+   * Fetch the previous run's failed tests for a CI run, so a retry can run only
+   * those. Returns null on any failure (the caller then runs the full suite).
+   */
+  async fetchFailedTests(
+    projectId: string,
+    ciRunId: string,
+    attempt?: number,
+  ): Promise<FailedTestsResult | null> {
+    const query = new URLSearchParams({ ciRunId });
+    if (attempt !== undefined) query.set('attempt', String(attempt));
+    const res = await this.send('GET', `/v1/projects/${projectId}/failed-tests?${query}`, {
+      headers: this.headers(),
+    });
+    if (!res) return null;
+    try {
+      return (await res.json()) as FailedTestsResult;
+    } catch {
+      log.warn('GET /failed-tests returned an unparseable body');
       return null;
     }
   }
