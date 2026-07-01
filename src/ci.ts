@@ -127,7 +127,7 @@ function detectCiProvider(): RunContext['ciProvider'] {
  * Resolution order per field: CI-specific > generic GIT_* > git shell-out > empty.
  * Branch stays undefined when unknown, the dashboard renders "No Branch Info".
  */
-export function detectRunContext(_options: NijamReporterOptions): RunContext {
+export function detectRunContext(_options?: NijamReporterOptions): RunContext {
   const ciProvider = detectCiProvider();
 
   const commitSha = firstOf(
@@ -161,6 +161,10 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
   );
 
   const ciRunId = firstOf(
+    // NIJAM_RUN_GROUP pins the clubbing key when retrying only failed tests on a CI
+    // that mints a new run id per attempt (set by `nijam-pw fetch-failed`), so the
+    // retry clubs under the original run. On GitHub the same GITHUB_RUN_ID already does.
+    env.NIJAM_RUN_GROUP,
     env.GITHUB_RUN_ID,
     env.CI_PIPELINE_ID, // GitLab
     env.CIRCLE_BUILD_NUM,
@@ -170,7 +174,9 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
 
   // Re-running a workflow keeps the same run id but bumps the attempt; include it
   // in the run's correlation key so a re-run is a fresh run, not a merge.
-  const ciRunAttempt = firstOf(env.GITHUB_RUN_ATTEMPT);
+  // NIJAM_RUN_ATTEMPT (from `fetch-failed`) wins so an in-workflow retry gets a
+  // distinct attempt even when the native attempt var doesn't change.
+  const ciRunAttempt = firstOf(env.NIJAM_RUN_ATTEMPT, env.GITHUB_RUN_ATTEMPT);
 
   const ciRunUrl = firstOf(
     githubRunUrl(),
@@ -204,6 +210,18 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
     fromGit.name,
   );
 
+  // Who kicked off the CI run (the actor/triggerer), separate from the commit
+  // author above, this can be a person or a bot (scheduled runs, a re-run, a
+  // Dependabot PR). CIs expose it as a username/login, not an email;
+  // GITHUB_TRIGGERING_ACTOR is the user who actually (re-)ran the workflow.
+  const triggeredBy = firstOf(
+    env.GITHUB_TRIGGERING_ACTOR,
+    env.GITHUB_ACTOR,
+    env.GITLAB_USER_LOGIN,
+    env.GITLAB_USER_NAME,
+    env.CIRCLE_USERNAME,
+  );
+
   return {
     commitSha,
     branch,
@@ -215,5 +233,6 @@ export function detectRunContext(_options: NijamReporterOptions): RunContext {
     repository,
     authorEmail,
     authorName,
+    triggeredBy,
   };
 }

@@ -111,6 +111,9 @@ export default class NijamReporter implements Reporter {
         startedAt: this.startedAt,
         shardIndex: this.shardIndex,
         shardTotal: this.shardTotal,
+        // Set by `nijam-pw fetch-failed` when this run is a failed-only retry, so the
+        // dashboard tags it "re-run of failed".
+        partialRerun: isRerun(),
       });
 
       if (!created) {
@@ -313,4 +316,9 @@ function relativeFile(file: string, rootDir: string, gitRoot?: string): string {
 
 function describe(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Whether this run re-ran only failed tests (NIJAM_RERUN, set by `nijam-pw fetch-failed`). */
+function isRerun(): boolean {
+  return ['1', 'true', 'yes', 'on'].includes((process.env.NIJAM_RERUN ?? '').trim().toLowerCase());
 }
