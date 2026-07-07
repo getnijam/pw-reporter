@@ -12,7 +12,7 @@ import type {
 import { NijamClient } from './client.js';
 import { ExecutionBuffer } from './buffer.js';
 import { ArtifactUploader } from './artifacts.js';
-import { detectRunContext, detectGitRoot } from './ci.js';
+import { detectRunContext, detectGitRoot, envInt } from './ci.js';
 import { log, setSilent } from './log.js';
 import type {
   ExecutionStatus,
@@ -92,13 +92,16 @@ export default class NijamReporter implements Reporter {
     return false;
   }
 
-  async onBegin(config: FullConfig, _suite: Suite): Promise<void> {
+  async onBegin(config: FullConfig, suite: Suite): Promise<void> {
     if (this.disabled) return;
     try {
       // When running `--shard=i/N`, Playwright sets config.shard; all shards of one
-      // CI run share a correlation key server-side, so they club into one run.
-      this.shardIndex = config.shard?.current;
-      this.shardTotal = config.shard?.total;
+      // CI run share a correlation key server-side, so they club into one run. Manual
+      // fan-out (specs split across CI jobs WITHOUT --shard) has no config.shard, so
+      // fall back to NIJAM_SHARD_INDEX / NIJAM_SHARD_TOTAL, each job stamps its machine
+      // and the clubbed run auto-completes once all shards report (like native --shard).
+      this.shardIndex = config.shard?.current ?? envInt('NIJAM_SHARD_INDEX');
+      this.shardTotal = config.shard?.total ?? envInt('NIJAM_SHARD_TOTAL');
       this.rootDir = config.rootDir;
       this.gitRoot = detectGitRoot() ?? '';
 
@@ -126,6 +129,16 @@ export default class NijamReporter implements Reporter {
       this.runUrl = created.url ?? null;
       // Print the run's dashboard link so it's clickable straight from CI / terminal logs.
       log.info(this.runUrl ? `run started, view it at ${this.runUrl}` : `run started (${created.id})`);
+
+      // Report the full suite up front so the dashboard shows the true total and every
+      // spec file immediately, instead of a count that climbs as tests finish. `suite`
+      // is this shard's slice; the server sums the totals and unions the files. Fire and
+      // forget, it resolves while tests run and soft-fails without affecting the run.
+      const allTests = suite.allTests();
+      const plannedFiles = [
+        ...new Set(allTests.map((t) => relativeFile(t.location.file, this.rootDir, this.gitRoot))),
+      ];
+      void this.client.plan(this.runId, { plannedTotal: allTests.length, plannedFiles });
     } catch (err) {
       this.disabled = true;
       log.warn(`onBegin failed: ${describe(err)}`);

@@ -127,6 +127,18 @@ function detectCiProvider(): RunContext['ciProvider'] {
  * Resolution order per field: CI-specific > generic GIT_* > git shell-out > empty.
  * Branch stays undefined when unknown, the dashboard renders "No Branch Info".
  */
+/**
+ * A finite integer env var, else undefined. Backs the manual-fan-out shard vars
+ * (NIJAM_SHARD_INDEX / NIJAM_SHARD_TOTAL) for teams that split specs across CI jobs
+ * without Playwright's `--shard`.
+ */
+export function envInt(name: string): number | undefined {
+  const raw = process.env[name];
+  if (!raw || raw.trim() === '') return undefined;
+  const n = Number.parseInt(raw.trim(), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export function detectRunContext(_options?: NijamReporterOptions): RunContext {
   const ciProvider = detectCiProvider();
 

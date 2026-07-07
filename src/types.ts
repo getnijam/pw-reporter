@@ -61,6 +61,14 @@ export type CreateRunPayload = RunContext & {
   partialRerun?: boolean;
 };
 
+/** Payload sent to POST /v1/runs/:id/plan to report the suite up front. */
+export type PlanRunPayload = {
+  /** Tests this process will run (its shard slice; the server sums across shards). */
+  plannedTotal: number;
+  /** Unique spec files in this process's slice (the server unions across shards). */
+  plannedFiles: string[];
+};
+
 /** One failed test from the previous run, returned by GET /v1/projects/:id/failed-tests. */
 export type FailedTest = {
   testId: string;

@@ -6,6 +6,7 @@ import type {
   CreateRunPayload,
   FailedTestsResult,
   FinalizeRunPayload,
+  PlanRunPayload,
   TestExecutionPayload,
 } from './types.js';
 
@@ -133,6 +134,14 @@ export class NijamClient {
     await this.send('POST', `/v1/runs/${runId}/executions`, {
       headers: this.headers(),
       body: JSON.stringify({ executions, shardIndex }),
+    });
+  }
+
+  /** Report the run's planned total + spec files up front. Soft-fails like the rest. */
+  async plan(runId: string, payload: PlanRunPayload): Promise<void> {
+    await this.send('POST', `/v1/runs/${runId}/plan`, {
+      headers: this.headers(),
+      body: JSON.stringify(payload),
     });
   }
 
