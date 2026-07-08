@@ -68,6 +68,30 @@ Supported out of the box:
 
 **Author email/name** come from CI vars where available (`GITLAB_USER_EMAIL`, `CI_COMMIT_AUTHOR`); GitHub, CircleCI, and Bitbucket don't expose a commit-author email, so the reporter falls back to `git log -1` and then `git config user.email`.
 
+## Sharding and CI matrices
+
+**Playwright `--shard=i/N`** works automatically: every shard reports into one clubbed run, each test is tagged with the shard it ran on, and the run finalizes once all shards report. Nothing to configure.
+
+**Manual fan-out** (splitting spec files across CI jobs _without_ `--shard`) has no `config.shard`, so set two env vars per job to get the same result:
+
+| Env var             | Value                                                          |
+| ------------------- | ------------------------------------------------------------- |
+| `NIJAM_SHARD_INDEX` | This job's index, unique per job (1-based, e.g. the matrix index). |
+| `NIJAM_SHARD_TOTAL` | Total number of jobs.                                         |
+
+Each job then stamps its machine on the tests it runs, and the clubbed run auto-completes once all `NIJAM_SHARD_TOTAL` jobs have reported (no post-matrix finalize step needed). GitHub Actions example:
+
+```yaml
+strategy:
+  matrix:
+    shard: [1, 2, 3, 4]
+env:
+  NIJAM_SHARD_INDEX: ${{ matrix.shard }}
+  NIJAM_SHARD_TOTAL: 4
+```
+
+All jobs must share the same CI run id (automatic on CI) so they club into one run, and each index must be unique. `config.shard` (native `--shard`) always wins over these vars.
+
 ## Environments
 
 Pass `environment` to tag each run with its deploy target, any string you like (`"staging"`, `"production"`, `"pr-preview"`, …), often wired to an env var so each pipeline reports its own:
