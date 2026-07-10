@@ -70,14 +70,14 @@ Supported out of the box:
 
 ## Sharding and CI matrices
 
-**Playwright `--shard=i/N`** works automatically: every shard reports into one clubbed run, each test is tagged with the shard it ran on, and the run finalizes once all shards report. Nothing to configure.
+**Playwright `--shard=i/N`** works automatically: every shard reports into one clubbed run, each test is tagged with the **1-based shard index** (`i` of `N`, from Playwright's `config.shard.current`) it ran on, and the run finalizes once all shards report. That index is what the dashboard shows as the `shard i/N` chip. Nothing to configure.
 
-**Manual fan-out** (splitting spec files across CI jobs _without_ `--shard`) has no `config.shard`, so set two env vars per job to get the same result:
+**Manual fan-out** (splitting spec files across CI jobs _without_ `--shard`) has no `config.shard`, so set two env vars per job to supply the same shard index/total yourself:
 
 | Env var             | Value                                                          |
 | ------------------- | ------------------------------------------------------------- |
-| `NIJAM_SHARD_INDEX` | This job's index, unique per job (1-based, e.g. the matrix index). |
-| `NIJAM_SHARD_TOTAL` | Total number of jobs.                                         |
+| `NIJAM_SHARD_INDEX` | This job's **1-based** shard index, `1` to `N`, unique per job (e.g. the matrix index). Starts at 1, not 0, to match native `--shard` numbering. |
+| `NIJAM_SHARD_TOTAL` | Total number of jobs (`N`).                                   |
 
 Each job then stamps its machine on the tests it runs, and the clubbed run auto-completes once all `NIJAM_SHARD_TOTAL` jobs have reported (no post-matrix finalize step needed). GitHub Actions example:
 
