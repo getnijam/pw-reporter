@@ -148,7 +148,7 @@ export default class NijamReporter implements Reporter {
   onTestEnd(test: TestCase, result: TestResult): void {
     if (this.disabled || !this.runId) return;
     try {
-      const status = normalizeStatus(result.status);
+      const status = attemptStatus(test, result);
       this.outcomes.set(test.id, test.outcome());
 
       const executionId = randomUUID();
@@ -163,7 +163,7 @@ export default class NijamReporter implements Reporter {
         status,
         durationMs: result.duration,
         retry: result.retry,
-        errorMessage: result.error?.message,
+        errorMessage: errorMessageFor(status, result),
         line: test.location.line,
         startedAt: result.startTime.toISOString(),
       };
@@ -274,6 +274,38 @@ export default class NijamReporter implements Reporter {
     }
     return stats;
   }
+}
+
+/** Playwright's own wording when a `test.fail()` test passes; the result carries no error. */
+const UNEXPECTED_PASS_MESSAGE = 'Expected to fail, but passed.';
+
+/**
+ * How Playwright itself judges this attempt, which is not always its raw status.
+ * A test marked `test.fail()` has `expectedStatus: 'failed'`, so failing IS the
+ * pass condition (Playwright's reporters print it green and the run stays green)
+ * and passing unexpectedly is the failure. Mirrors Playwright's rule: an attempt
+ * is expected when `result.status` equals `test.expectedStatus`; skipped and
+ * interrupted attempts always keep their own status.
+ */
+function attemptStatus(test: TestCase, result: TestResult): ExecutionStatus {
+  const raw = normalizeStatus(result.status);
+  if (raw === 'skipped' || raw === 'interrupted') return raw;
+  if (result.status === test.expectedStatus) return 'passed';
+  // Unexpected pass (an expected-to-fail test that succeeded). Playwright fails it,
+  // so we do too; a timedOut or failed attempt keeps its own failure status.
+  if (raw === 'passed') return 'failed';
+  return raw;
+}
+
+/**
+ * The error to store for this attempt. An expected failure ships as passed, so its
+ * intentional assertion error is dropped (it is not a failure anyone should triage),
+ * and an unexpected pass gets Playwright's message, since its result has no error.
+ */
+function errorMessageFor(status: ExecutionStatus, result: TestResult): string | undefined {
+  if (status === 'passed') return undefined;
+  if (result.status === 'passed') return UNEXPECTED_PASS_MESSAGE;
+  return result.error?.message;
 }
 
 function normalizeStatus(status: TestResult['status']): ExecutionStatus {

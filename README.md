@@ -121,6 +121,10 @@ reporter: [
 ],
 ```
 
+## Expected failures (`test.fail()`)
+
+Statuses match the ones Playwright prints. A test annotated [`test.fail()`](https://playwright.dev/docs/test-annotations#fail) is *expected* to fail, so when it fails it's reported to Nijam as **passed** (and its assertion error isn't stored, there's nothing to triage). If it passes instead, Playwright counts that as a failure and so does Nijam, with the error `Expected to fail, but passed.` Same for the run's totals: `test.fail()` never turns a green Playwright run red on your dashboard.
+
 ## Traces
 
 Traces are uploaded only for tests that **fail** or **time out** (matching Playwright's default `on-first-retry` trace mode). Uploads stream straight to storage, never block your tests, and are capped at 4 concurrent uploads to spare CI bandwidth.
